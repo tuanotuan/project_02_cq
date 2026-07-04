@@ -36,11 +36,19 @@ The server:
 - Streams at approximately 20 FPS.
 - Rewinds automatically and repeats the video when the file ends.
 - Prints periodic throughput statistics.
+- Can bind the outgoing multicast stream to a specific Wi-Fi interface with `--interface`.
+- Can repeat packets for unstable Wi-Fi demos with `--repeat`.
 
 Run:
 
 ```bash
 python Server.py movie.Mjpeg
+```
+
+For a two-machine Wi-Fi demo:
+
+```bash
+python Server.py movie.Mjpeg --interface <SERVER_WIFI_IPV4> --fps 10 --repeat 2 --packet-delay-ms 1
 ```
 
 ## Client Implementation
@@ -59,6 +67,12 @@ Run:
 
 ```bash
 python Client.py
+```
+
+If the client has multiple interfaces:
+
+```bash
+python Client.py --interface <CLIENT_WIFI_IPV4>
 ```
 
 ## Multiple Clients And Loss Detection

@@ -25,10 +25,22 @@ Start the multicast server:
 python Server.py movie.Mjpeg
 ```
 
+On a two-machine Wi-Fi demo, bind multicast to the server Wi-Fi IPv4 address:
+
+```bash
+python Server.py movie.Mjpeg --interface 192.168.31.252 --fps 10 --repeat 2 --packet-delay-ms 1
+```
+
 Start one or more clients:
 
 ```bash
 python Client.py
+```
+
+If the client has more than one network interface, bind the membership to the client Wi-Fi IPv4 address:
+
+```bash
+python Client.py --interface 192.168.31.185
 ```
 
 Defaults:
@@ -36,6 +48,8 @@ Defaults:
 - Multicast group: `239.1.1.1`
 - Port: `5004`
 - Frame rate: `20 FPS`
+
+Use an SD MJPEG file first when demoing over Wi-Fi. HD/FHD multicast creates many UDP fragments per frame, and consumer Wi-Fi routers often drop multicast packets.
 
 Optional examples:
 

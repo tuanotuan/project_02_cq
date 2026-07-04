@@ -15,12 +15,25 @@ TTL = 1
 
 
 class MulticastVideoServer:
-    def __init__(self, filename, group=MULTICAST_GROUP, port=MULTICAST_PORT, fps=FPS, ttl=TTL):
+    def __init__(
+        self,
+        filename,
+        group=MULTICAST_GROUP,
+        port=MULTICAST_PORT,
+        fps=FPS,
+        ttl=TTL,
+        interface="0.0.0.0",
+        repeat=1,
+        packet_delay_ms=0.0,
+    ):
         self.filename = filename
         self.group = group
         self.port = port
         self.fps = fps
         self.ttl = ttl
+        self.interface = interface
+        self.repeat = max(1, repeat)
+        self.packet_delay = max(0.0, packet_delay_ms / 1000.0)
         self.frame_id = 0
         self.bytes_sent = 0
         self.packets_sent = 0
@@ -32,6 +45,8 @@ class MulticastVideoServer:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("B", self.ttl))
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+        if self.interface != "0.0.0.0":
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.interface))
         return sock
 
     def run(self):
@@ -40,7 +55,10 @@ class MulticastVideoServer:
         last_report_at = time.perf_counter()
 
         print(f"Multicast server streaming {self.filename}")
-        print(f"Destination: {self.group}:{self.port}, FPS: {self.fps}, TTL: {self.ttl}")
+        print(
+            f"Destination: {self.group}:{self.port}, FPS: {self.fps}, TTL: {self.ttl}, "
+            f"interface: {self.interface}, repeat: {self.repeat}"
+        )
 
         try:
             while True:
@@ -77,9 +95,12 @@ class MulticastVideoServer:
             start = fragment_index * MAX_PAYLOAD_SIZE
             payload = frame[start:start + MAX_PAYLOAD_SIZE]
             packet = encode_packet(self.frame_id, timestamp_ms, fragment_index, fragment_count, payload)
-            self.socket.sendto(packet, (self.group, self.port))
-            self.packets_sent += 1
-            self.bytes_sent += len(packet)
+            for _ in range(self.repeat):
+                self.socket.sendto(packet, (self.group, self.port))
+                self.packets_sent += 1
+                self.bytes_sent += len(packet)
+                if self.packet_delay > 0:
+                    time.sleep(self.packet_delay)
 
     def _print_stats(self, elapsed):
         mbps = (self.bytes_sent * 8 / elapsed) / 1_000_000
@@ -98,10 +119,22 @@ def parse_args():
     parser.add_argument("--port", type=int, default=MULTICAST_PORT, help="multicast UDP port")
     parser.add_argument("--fps", type=int, default=FPS, help="frames per second")
     parser.add_argument("--ttl", type=int, default=TTL, help="multicast TTL")
+    parser.add_argument("--interface", default="0.0.0.0", help="local interface address used to send multicast")
+    parser.add_argument("--repeat", type=int, default=1, help="send each packet this many times")
+    parser.add_argument("--packet-delay-ms", type=float, default=0.0, help="delay between repeated packets")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    server = MulticastVideoServer(args.filename, args.group, args.port, args.fps, args.ttl)
+    server = MulticastVideoServer(
+        args.filename,
+        args.group,
+        args.port,
+        args.fps,
+        args.ttl,
+        args.interface,
+        args.repeat,
+        args.packet_delay_ms,
+    )
     server.run()
